@@ -18,48 +18,42 @@ public class LogicServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
 
-        // получаем текущую сессию
         HttpSession currentSession = req.getSession();
-        currentSession.setAttribute("CROSSES", Sign.CROSS);
-        currentSession.setAttribute("NOUGHTS", Sign.NOUGHT);
 
-        //получаем обьект игрового поля из сессии
         Field field = extractField(currentSession);
 
-        //получаем индекс ячейки, по которой произошел отклик
         int index = getSelectedIndex(req);
         Sign currentSign = field.getField().get(index);
 
-        // Проверяем, что ячейка, по которой был клик пустая.
-        // Иначе не делаем ничего и отправляем пользователя на туже страницу без изменений
-        //параметров сессии
-        if(Sign.EMPTY != currentSign) {
+        if (Sign.EMPTY != currentSign) {
             RequestDispatcher dispatcher = getServletContext().getRequestDispatcher("/index.jsp");
             dispatcher.forward(req, resp);
             return;
         }
 
-        //ставим крестик в ячейке, по которой кликнул пользователь
         field.getField().put(index, Sign.CROSS);
 
-        //проверяем, не победил ли крестик после добавления последнего клика пользователя
         if (checkWin(resp, currentSession, field)) {
             return;
         }
 
-        //получаем пустую ячейку поля
         int emptyFieldIndex = field.getEmptyFieldIndex();
+
         if (emptyFieldIndex >= 0) {
             field.getField().put(emptyFieldIndex, Sign.NOUGHT);
             if (checkWin(resp, currentSession, field)) {
                 return;
             }
+        } else {
+            currentSession.setAttribute("draw", true);
+            List<Sign> data = field.getFieldData();
+            currentSession.setAttribute("data", data);
+            resp.sendRedirect("/index.jsp");
+            return;
         }
 
-        //считаем список значков
         List<Sign> data = field.getFieldData();
 
-        //обновляем обьект поля и список значков в сессии
         currentSession.setAttribute("data", data);
         currentSession.setAttribute("field", field);
 
@@ -81,22 +75,14 @@ public class LogicServlet extends HttpServlet {
         return (Field) fieldAttribute;
     }
 
-    /**
-     * Метод проверяет, нет ли трех крестиков/ноликов в ряд.
-     * Возвращает true/false
-     */
-    private boolean checkWin (HttpServletResponse response,HttpSession currentSession, Field field) throws IOException {
+    private boolean checkWin(HttpServletResponse response, HttpSession currentSession, Field field) throws IOException {
         Sign winner = field.checkWin();
         if (Sign.CROSS == winner || Sign.NOUGHT == winner) {
-            //добавляем флаг, который показывает что кто-то победил
             currentSession.setAttribute("winner", winner);
-            // считаем список значков
             List<Sign> data = field.getFieldData();
-            // обновляем этот список в сессии
             currentSession.setAttribute("data", data);
-            //шлем редирект
             response.sendRedirect("/index.jsp");
-            return  true;
+            return true;
         }
         return false;
     }
